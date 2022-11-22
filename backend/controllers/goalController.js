@@ -1,10 +1,12 @@
-const asyncHandler = require('express-async-handler')
+const asyncHandler = require('express-async-handler');
+const { isGeneratorFunction } = require('util/types');
 const Goal = require('../models/goalModel');
+const User = require('../models/userModel');
 //@desc Get Goals Function
 //@route GET/api/goals
 //@access Private
 const getGoals = asyncHandler(async (req,res) => {
-   const goals = await Goal.find();
+   const goals = await Goal.find({user:req.user.id});
     res.status(200).json(goals);
 })
 
@@ -18,6 +20,7 @@ const setGoal = asyncHandler(async (req,res) => {
     }
     const goal = await Goal.create({
         text : req.body.text,
+        user: req.user.id,
     })
     res.status(200).json(goal);
 })
@@ -26,10 +29,26 @@ const setGoal = asyncHandler(async (req,res) => {
 //@access Private
 const updateGoal = asyncHandler( async (req,res) => {
     const goal = await Goal.findById(req.params.id)
+
     if(!goal){
         res.status(400)
         throw new Error('Goal not found')
     }
+
+    const user = await User.findById(req.user.id)
+//check for user
+
+    if(!user){
+        res.status(401)
+        throw new Error('User not found')
+    }
+
+    //Make sure the logged in user matches the goal user
+    if(goal.user.toString( ) != user.id){
+        res.status(401)
+        throw new Error('User not authorized')
+    }
+
     const updatedGoal = await Goal.findByIdAndUpdate(req.params.id,req.body,{
         new:true,
     })
@@ -43,6 +62,19 @@ const deleteGoal = asyncHandler(async (req,res) => {
     if(!goal){
         res.status(400)
         throw new Error('Goal not found')
+    }
+    const user = await User.findById(req.user.id)
+    //check for user
+
+    if(!user){
+        res.status(401)
+        throw new Error('User not found')
+    }
+
+    //Make sure the logged in user matches the goal user
+    if(goal.user.toString( ) != user.id){
+        res.status(401)
+        throw new Error('User not authorized')
     }
      await goal.remove()
     res.status(200).json({id : req.params.id});
